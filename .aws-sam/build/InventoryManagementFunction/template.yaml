@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda function for inventory management with DynamoDB backend using HTTP methods
+
+Resources:
+  # DynamoDB Table for Inventory
+  InventoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: InventoryTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: product_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: product_id
+          KeyType: HASH
+
+  # Inventory Management Lambda function (for direct invocation)
+  InventoryManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: inventory_lambda.lambda_handler
+      Runtime: python3.9
+      CodeUri: ./
+      MemorySize: 128
+      Timeout: 30
+      Description: Lambda function for inventory management operations
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InventoryTable
+      Environment:
+        Variables:
+          INVENTORY_TABLE: !Ref InventoryTable
+          LOG_LEVEL: INFO
+
+  # API Gateway for RESTful interface
+  InventoryApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      EndpointConfiguration: REGIONAL
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: NONE
+
+  # Lambda function that handles API requests
+  InventoryApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: inventory_lambda.lambda_handler
+      Runtime: python3.9
+      CodeUri: ./
+      MemorySize: 128
+      Timeout: 30
+      Description: Lambda function for API-based inventory management
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref InventoryTable
+      Environment:
+        Variables:
+          INVENTORY_TABLE: !Ref InventoryTable
+          LOG_LEVEL: INFO
+      Events:
+        # List items (GET) and create item (POST)
+        ListItemsApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        CreateItemApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+        # Get item (GET), update item (PUT), and delete item (DELETE)
+        GetItemApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory/{product_id}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        UpdateItemApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory/{product_id}
+            Method: PUT
+            Auth:
+              Authorizer: NONE
+        DeleteItemApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory/{product_id}
+            Method: DELETE
+            Auth:
+              Authorizer: NONE
+
+        # Path for checking low-stock items
+        LowStockApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref InventoryApi
+            Path: /inventory/low-stock
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+Outputs:
+  InventoryTable:
+    Description: "DynamoDB table for inventory management"
+    Value: !Ref InventoryTable
+
+  InventoryManagementFunction:
+    Description: "Inventory Management Lambda Function ARN"
+    Value: !GetAtt InventoryManagementFunction.Arn
+
+  InventoryApi:
+    Description: "API Gateway endpoint URL for Inventory API"
+    Value: !Sub "https://${InventoryApi}.execute-api.${AWS::Region}.amazonaws.com/v1/inventory"
+
+  InventoryApiFunction:
+    Description: "API Gateway Lambda Function ARN"
+    Value: !GetAtt InventoryApiFunction.Arn
