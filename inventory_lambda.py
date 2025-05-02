@@ -386,7 +386,7 @@ if __name__ == "__main__":
             items = body.get('items', [])
             
             if not items:
-                print("\n   No items found in the inventory table.")
+                print("\n   ÷ found in the inventory table.")
             else:
                 print(f"\n   Found {len(items)} items:")
                 print("-" * 50)

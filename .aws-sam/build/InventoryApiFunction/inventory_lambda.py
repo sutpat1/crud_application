@@ -4,7 +4,6 @@ import logging
 from decimal import Decimal
 from botocore.exceptions import ClientError
 from datetime import datetime
-from dynamo_crud import DynamoCRUD
 from boto3.dynamodb.conditions import Key, Attr
 
 # Configure logging
@@ -68,7 +67,7 @@ def lambda_handler(event, context):
                     path = ''
             
             # Parse query string parameters
-            body = event.get('queryStringParameters', {}) or {}
+            query_params = event.get('queryStringParameters', {}) or {}
             
             # Parse body if present
             if 'body' in event and event['body']:
@@ -92,7 +91,6 @@ def lambda_handler(event, context):
             # Combine all parameters
             params = {
                 'table_name': table_name,
-                **query_params,
                 **body
             }
             
@@ -112,7 +110,7 @@ def lambda_handler(event, context):
         # Initialize DynamoDB resource
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(table_name)
-        crud = DynamoCRUD("InventoryTable")
+        
         # Route request based on HTTP method and path
         if http_method == 'GET':
             if product_id:
@@ -356,3 +354,67 @@ def remove_inventory_item(table, params):
     except ClientError as e:
         logger.error(f"Error removing inventory item: {e.response['Error']['Message']}")
         return create_response(500, {'error': e.response['Error']['Message']})
+
+if __name__ == "__main__":
+    print("\n=== Starting Inventory Lambda Function ===")
+    
+    # Create a mock event for listing all items
+    event = {
+        'httpMethod': 'GET',
+        'path': '/inventory',
+        'queryStringParameters': {},
+        'body': json.dumps({
+            'table_name': 'InventoryTable',
+            'operation': 'list'
+        })
+    }
+    
+    print("\n1. Creating mock event for listing items...")
+    print(f"   HTTP Method: {event['httpMethod']}")
+    print(f"   Path: {event['path']}")
+    print(f"   Body: {event['body']}")
+    
+    try:
+        print("\n2. Invoking lambda_handler...")
+        response = lambda_handler(event, None)
+        
+        print("\n3. Processing response:")
+        print(f"   Status Code: {response['statusCode']}")
+        
+        if response['statusCode'] == 200:
+            body = json.loads(response['body'])
+            items = body.get('items', [])
+            
+            if not items:
+                print("\n   No items found in the inventory table.")
+            else:
+                print(f"\n   Found {len(items)} items:")
+                print("-" * 50)
+                
+                for index, item in enumerate(items, 1):
+                    print(f"\n   Item #{index}:")
+                    print(f"   - Product ID: {item.get('product_id')}")
+                    print(f"   - Name: {item.get('name')}")
+                    print(f"   - Price: {item.get('price')}")
+                    print(f"   - Stock Quantity: {item.get('stock_quantity')}")
+                    
+                    if 'category' in item:
+                        print(f"   - Category: {item.get('category')}")
+                    if 'description' in item:
+                        print(f"   - Description: {item.get('description')}")
+                    if 'last_updated' in item:
+                        print(f"   - Last Updated: {item.get('last_updated')}")
+                    
+                    print("   " + "-" * 50)
+        else:
+            print(f"\n   Error: {response['body']}")
+            
+    except Exception as e:
+        print("\n❌ Error occurred during execution:")
+        print(f"   Error type: {type(e).__name__}")
+        print(f"   Error message: {str(e)}")
+        print("\nStack trace:")
+        import traceback
+        traceback.print_exc()
+    
+    print("\n=== Inventory Lambda Function Execution Completed ===")
