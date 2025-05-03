@@ -56,11 +56,27 @@ def add_item(args):
     make_request('POST', f"{args.api_url}/items", item)
 
 def update_stock(args):
-    """Update stock quantity of an item"""
-    payload = {
-        "stock_change": args.stock_change
-    }
-    make_request('PATCH', f"{args.api_url}/items/{args.product_id}/stock", payload)
+    """Update fields of an item (stock, name, price, category, description, etc.)"""
+    payload = {}
+
+    # Add fields to payload if they are provided
+    if args.stock_change is not None:
+        payload["stock_change"] = args.stock_change
+    if hasattr(args, "new_quantity") and args.new_quantity is not None:
+        payload["new_quantity"] = args.new_quantity
+    if hasattr(args, "name") and args.name:
+        payload["name"] = args.name
+    if hasattr(args, "price") and args.price is not None:
+        payload["price"] = args.price
+    if hasattr(args, "category") and args.category:
+        payload["category"] = args.category
+    if hasattr(args, "description") and args.description:
+        payload["description"] = args.description
+
+    # You can add more fields as needed
+
+    # Use PUT or PATCH depending on your API design
+    make_request('PUT', f"{args.api_url}/items/{args.product_id}", payload)
 
 def get_item(args):
 

@@ -69,6 +69,7 @@ def index():
                         # If conversion fails, set a default or keep as is
                         print(f"Warning: Invalid price format for item {item.get('product_id', 'unknown')}")
                         
+
             return render_template('index.html', items=items)
         else:
             print(response)
@@ -109,105 +110,55 @@ def add_item():
 
 @app.route('/edit/<product_id>', methods=['GET', 'POST'])
 def edit_item(product_id):
-    if request.method == 'POST':
-        try:
-            # First, get the current item to calculate stock change
-            current_response = make_api_request('GET', '/inventory')
-            current_data = current_response.json()
-            current_item = next((item for item in current_data['items'] 
-                               if item.get('product_id') == product_id), None)
-            
-            if not current_item:
+    if request.method == 'GET':
+        response = make_api_request('GET', f'/inventory')
+        if response.status_code == 200:
+            data = response.json()
+            # Find the item with the matching product_id
+            item = next((i for i in data.get('items', []) if i.get('product_id') == product_id), None)
+            print("Item being sent to template:", item)
+            if item:
+                print("API response:", response.json())
+                return render_template('edit.html', item=item)
+            else:
                 flash('Item not found', 'error')
                 return redirect(url_for('index'))
+        else:
+            flash('Error retrieving item', 'error')
+            return redirect(url_for('index'))
+    elif request.method == 'POST':
+        try:
+            stock_quantity_str = request.form.get('stock_quantity', '').strip()
+            
+            try:
+                new_quantity = (float(stock_quantity_str))
+            except ValueError:
+                flash('Invalid stock quantity', 'error')
+                return render_template('edit.html', item=item)
 
-            # Calculate stock change
-            new_stock = int(request.form['stock_quantity'])
-            current_stock = int(current_item.get('stock_quantity', 0))
-            stock_change = new_stock - current_stock
-
-            # Prepare the update data
             item_update = {
-                'table_name': 'InventoryTable',  # Add this if your API requires it
                 'product_id': product_id,
                 'name': request.form['name'],
-                'price': str(float(request.form['price'])),  # Convert to string
-                'stock_change': stock_change,  # Add the stock change
                 'category': request.form.get('category', ''),
+                'price': float(request.form['price']),
+                'new_quantity': new_quantity,
                 'description': request.form.get('description', '')
             }
             
-            print("Updating item with data:", item_update)
-            
-            # Make the update request
-            response = make_api_request('PUT', '/inventory', data=item_update)
-            print("Update response status:", response.status_code)
-            print("Update response:", response.text)
-            
-            if response.status_code in [200, 201]:
+            response = make_api_request('PUT', f'/inventory/{product_id}', data=item_update)
+            if response.status_code == 200:
                 flash('Item updated successfully!', 'success')
                 return redirect(url_for('index'))
             else:
+                error_msg = "Unknown error"
                 try:
-                    error_data = response.json()
-                    error_msg = error_data.get('error', 'Unknown error')
+                    response_data = response.json()
+                    error_msg = response_data.get('error', 'Unknown error')
                 except:
-                    error_msg = f"Server returned status code {response.status_code}"
+                    pass
                 flash(f'Error updating item: {error_msg}', 'error')
-                # Return to form with current values
-                return render_template('edit.html', item={
-                    'product_id': product_id,
-                    'name': request.form['name'],
-                    'price': request.form['price'],
-                    'stock_quantity': request.form['stock_quantity'],
-                    'category': request.form.get('category', ''),
-                    'description': request.form.get('description', '')
-                })
-                
         except Exception as e:
-            print("Exception occurred:", str(e))
             flash(f'Error updating item: {str(e)}', 'error')
-            # Return to form with submitted values
-            return render_template('edit.html', item={
-                'product_id': product_id,
-                'name': request.form.get('name', ''),
-                'price': request.form.get('price', 0),
-                'stock_quantity': request.form.get('stock_quantity', 0),
-                'category': request.form.get('category', ''),
-                'description': request.form.get('description', '')
-            })
-    else:  # GET request
-        try:
-            response = make_api_request('GET', '/inventory')
-            print("GET response:", response.status_code)
-            
-            if response.status_code == 200:
-                data = response.json()
-                # Find the specific item
-                item = next((item for item in data['items'] 
-                           if item.get('product_id') == product_id), None)
-                
-                if item:
-                    # Ensure all fields are present with proper types
-                    item_data = {
-                        'product_id': item.get('product_id', product_id),
-                        'name': item.get('name', ''),
-                        'price': item.get('price', 0),
-                        'stock_quantity': item.get('stock_quantity', 0),
-                        'category': item.get('category', ''),
-                        'description': item.get('description', '')
-                    }
-                    return render_template('edit.html', item=item_data)
-                else:
-                    flash('Item not found', 'error')
-                    return redirect(url_for('index'))
-            else:
-                flash('Error retrieving item details', 'error')
-                return redirect(url_for('index'))
-        except Exception as e:
-            print("Exception in GET:", str(e))
-            flash(f'Error retrieving item: {str(e)}', 'error')
-            return redirect(url_for('index'))
 
 @app.route('/delete/<product_id>')
 def delete_item(product_id):

@@ -187,84 +187,59 @@ def add_inventory_item(table, item):
         return create_response(500, {'error': e.response['Error']['Message']})
 
 def update_stock_quantity(table, params):
-    """Update the stock quantity of an inventory item"""
     product_id = params.get('product_id')
     stock_change = params.get('stock_change')
-    
-    if not product_id:
-        return create_response(400, {'error': 'Missing product_id for stock update'})
-    
-    if stock_change is None:
-        # If no stock_change is provided, check if there's a new_quantity
-        new_quantity = params.get('new_quantity')
-        if new_quantity is None:
-            return create_response(400, {'error': 'Missing stock_change or new_quantity for stock update'})
-        
-        # If using new_quantity, we'll calculate the stock_change below
-        using_new_quantity = True
-    else:
-        using_new_quantity = False
-    
-    # Convert numeric values to Decimal
-    if not using_new_quantity and isinstance(stock_change, (int, float)):
-        stock_change = Decimal(str(stock_change))
-    if using_new_quantity and isinstance(new_quantity, (int, float)):
-        new_quantity = Decimal(str(new_quantity))
-    
+    new_quantity = params.get('new_quantity')
+
+    # Prepare update expressions
+    update_expression = []
+    expression_values = {}
+    expression_names = {}
+
+    # Handle stock update
+    if stock_change is not None:
+        update_expression.append('stock_quantity = stock_quantity + :stock_change')
+        expression_values[':stock_change'] = Decimal(str(stock_change))
+    elif new_quantity is not None:
+        update_expression.append(f'stock_quantity = :new_quantity')
+        expression_values[':new_quantity'] = Decimal(str(new_quantity))
+
+    # Handle other fields
+    for field in ['name', 'category', 'price', 'description']:
+        if field in params and params[field] not in [None, '']:
+            if field == 'name':
+                update_expression.append("#n = :name")
+                expression_values[":name"] = params["name"]
+                expression_names["#n"] = "name"
+            elif field == 'price':
+                update_expression.append("price = :price")
+                expression_values[":price"] = Decimal(str(params["price"]))
+            else:
+                update_expression.append(f"{field} = :{field}")
+                expression_values[f":{field}"] = params[field]
+
+    if not update_expression:
+        return create_response(400, {'error': 'No fields to update'})
+
+    # Always update the updated_at timestamp
+    update_expression.append('updated_at = :updated_at')
+    expression_values[':updated_at'] = datetime.now().isoformat()
+
     try:
-        # Check if item exists
-        response = table.get_item(Key={'product_id': product_id})
-        if 'Item' not in response:
-            return create_response(404, {'error': f'Item with product_id {product_id} not found'})
-        
-        item = response['Item']
-        current_stock = Decimal(str(item.get('stock_quantity', 0)))
-        
-        if using_new_quantity:
-            # Calculate the stock change based on new quantity
-            stock_change = new_quantity - current_stock
-        
-        new_stock = current_stock + stock_change
-        
-        # Prevent negative stock
-        if new_stock < 0:
-            return create_response(400, {'error': f'Cannot reduce stock below zero. Current stock: {current_stock}, Requested change: {stock_change}'})
-        
-        # Update the stock quantity
-        update_response = table.update_item(
-            Key={'product_id': product_id},
-            UpdateExpression="set stock_quantity = :q, updated_at = :t",
-            ExpressionAttributeValues={
-                ':q': new_stock,
-                ':t': datetime.now().isoformat()
-            },
-            ReturnValues="ALL_NEW"
-        )
-        
-        updated_item = update_response.get('Attributes', {})
-        
-        # Check if stock is below threshold after update
-        threshold = item.get('reorder_threshold', 0)
-        warning = None
-        if threshold and new_stock <= Decimal(str(threshold)):
-            warning = f"WARNING: Stock level ({new_stock}) is at or below reorder threshold ({threshold})"
-        
-        result = {
-            'message': 'Stock quantity updated successfully',
-            'product_id': product_id,
-            'previous_stock': float(current_stock),
-            'stock_change': float(stock_change),
-            'new_stock': float(new_stock),
-            'updated_item': updated_item
+        update_kwargs = {
+            "Key": {"product_id": product_id},
+            "UpdateExpression": "SET " + ", ".join(update_expression),
+            "ExpressionAttributeValues": expression_values,
         }
-        
-        if warning:
-            result['warning'] = warning
-            
-        return create_response(200, result)
-    except ClientError as e:
-        logger.error(f"Error updating stock quantity: {e.response['Error']['Message']}")
-        return create_response(500, {'error': e.response['Error']['Message']})
+        if expression_names:
+            update_kwargs["ExpressionAttributeNames"] = expression_names
+
+        table.update_item(**update_kwargs)
+        return create_response(200, {'message': 'Item updated successfully'})
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return create_response(500, {'error': str(e)})
 
 def get_inventory_item(table, params):
     """Get details of an inventory item"""

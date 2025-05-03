@@ -6,11 +6,10 @@
 <div class="row">
     <div class="col-md-6 offset-md-3">
         <h2>Edit Item</h2>
-        <form method="POST" action="{{ url_for('edit_item', product_id=item.product_id) }}">
+        <form method="POST">
             <div class="mb-3">
                 <label for="product_id" class="form-label">Product ID</label>
                 <input type="text" class="form-control" id="product_id" value="{{ item.product_id }}" disabled>
-                <small class="text-muted">Product ID cannot be changed</small>
             </div>
             <div class="mb-3">
                 <label for="name" class="form-label">Name</label>
