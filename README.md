@@ -1,4 +1,4 @@
-markdown# Inventory Management System
+# Inventory Management System
 
 A serverless, scalable inventory management application built with **AWS Lambda**, **DynamoDB**, **API Gateway**, and **Flask** for comprehensive product inventory tracking and management.
 
@@ -74,7 +74,7 @@ A serverless, scalable inventory management application built with **AWS Lambda*
 
 3. Note the API Gateway endpoint URL from the deployment outputs
 
-# Inventory Management System - Web UI Setup
+### Web UI Setup
 
 This document guides you through setting up and running the Flask-based web interface for the Inventory Management System.
 
@@ -97,4 +97,122 @@ cd inventory_ui
 ```
 
 ### 2. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Update the API_ENDPOINT in app.py with your deployed API Gateway URL
+
+### 4. Run the Flask application
+
+```bash
+python app.py
+```
+
+### 5. Access the web UI at http://localhost:5000
+
+---
+
+## 📱 Features Breakdown
+
+**RESTful API**
+
+* Complete CRUD operations for inventory items
+* JSON format for data exchange
+* Proper HTTP status codes and error handling
+* CORS support for cross-origin requests
+
+**Web Interface**
+
+* Responsive Bootstrap-based design
+* Interactive tables for inventory display
+* Forms for adding and editing items
+* Confirmation dialogs for delete operations
+
+**Serverless Backend**
+
+* Event-driven Lambda functions
+* DynamoDB for scalable NoSQL storage
+* API Gateway for HTTP endpoint management
+* CloudFormation for infrastructure as code
+
+**Command-Line Interface**
+
+* Python-based CLI for automation
+* Support for all inventory operations
+* JSON output formatting
+* Parameter validation and helpful error messages
+
+---
+
+## 🔧 CLI Usage Examples
+
+```bash
+# List all items
+python inventory_client.py --api-url <your-api-url> list
+
+# Add an item
+python inventory_client.py --api-url <your-api-url> add --product-id "apple" --name "Apple" --price 1.99 --stock-quantity 100 --category "Fruit"
+
+# Get a specific item
+python inventory_client.py --api-url <your-api-url> get --product-id "apple"
+
+# Update stock quantity
+python inventory_client.py --api-url <your-api-url> update-stock --product-id "apple" --stock-change 10
+
+# Remove an item
+python inventory_client.py --api-url <your-api-url> remove --product-id "apple"
+```
+
+---
+
+## 🌐 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /inventory | List all inventory items |
+| GET | /inventory/{product_id} | Get details of a specific item |
+| POST | /inventory | Add a new inventory item |
+| PUT | /inventory/{product_id} | Update an existing item |
+| DELETE | /inventory/{product_id} | Remove an item from inventory |
+| GET | /inventory/low-stock | List items with stock below threshold |
+
+---
+
+## 🔍 Customization
+
+To adapt this application for your needs:
+
+* Modify the DynamoDB schema in `template.yaml`
+* Add additional fields to the inventory items
+* Customize the Flask UI templates
+* Extend the Lambda function with additional business logic
+* Add authentication to protect API endpoints
+
+---
+
+## 🧪 Testing
+
+Run tests using the unittest framework:
+
+```bash
+python -m tests.test_lambda_update_items
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+## 🤝 Acknowledgements
+
+* AWS for the serverless infrastructure
+* Flask team for the web framework
+* Bootstrap for the responsive UI components
+
+
 
